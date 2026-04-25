@@ -4,22 +4,45 @@ import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where } 
 const inputMes = document.getElementById("mesFiltro");
 const btnGerarMes = document.getElementById("btnGerarMes");
 
+// 🔵 DATA PADRÃO (UMA VEZ SÓ)
+const hoje = new Date();
+const mesAtual = hoje.getFullYear() + "-" + String(hoje.getMonth() + 1).padStart(2, '0');
+
+// 🔵 ESTADO GLOBAL
+let mesSelecionado = mesAtual;
+
+// define valor inicial no input
+inputMes.value = mesSelecionado;
+
+// 🔵 FUNÇÃO AUXILIAR
 function obterMesAnterior(mes) {
     const [ano, mesNum] = mes.split("-").map(Number);
     let novoMes = mesNum - 1;
     let novoAno = ano;
+
     if (novoMes === 0) {
         novoMes = 12;
         novoAno--;
     }
+
     return `${novoAno}-${String(novoMes).padStart(2, "0")}`;
 }
 
-btnGerarMes.addEventListener("click", async () => {
-    const mesAtualSelecionado = inputMes.value;
-    const mesAnterior = obterMesAnterior(mesAtualSelecionado);
+// 🔵 ALTERAÇÃO DE MÊS
+inputMes.addEventListener("change", () => {
+    mesSelecionado = inputMes.value;
 
-    console.log("Mês atual:", mesAtualSelecionado);
+    console.log("Mês selecionado:", mesSelecionado);
+
+    listarImoveis();
+});
+
+// 🔵 BOTÃO GERAR MÊS
+btnGerarMes.addEventListener("click", async () => {
+
+    const mesAnterior = obterMesAnterior(mesSelecionado);
+
+    console.log("Mês atual:", mesSelecionado);
     console.log("Mês anterior:", mesAnterior);
 
     const q = query(
@@ -29,25 +52,44 @@ btnGerarMes.addEventListener("click", async () => {
 
     const querySnapshot = await getDocs(q);
 
-    console.log("Quantidade encontrados no mês anterior:", querySnapshot.size);
-});
+    console.log("Encontrados:", querySnapshot.size);
 
-// pega mês atual no formato YYYY-MM
-const hoje = new Date();
-const mesAtual = hoje.toISOString().slice(0, 7);
+    // VALIDAÇÃO 1
+    if (querySnapshot.size === 0) {
+        alert("Não há dados no mês anterior para copiar.");
+        return;
+    }
 
-// variável global de controle
-let mesSelecionado = mesAtual;
+    // VALIDAÇÃO 2
+    const qAtual = query(
+        collection(db, "ativos"),
+        where("mes", "==", mesSelecionado)
+    );
 
-// define o valor inicial no input
-inputMes.value = mesAtual;
+    const snapshotAtual = await getDocs(qAtual);
 
-inputMes.addEventListener("change", () => {
-    mesSelecionado = inputMes.value;
+    console.log("Registros no mês atual:", snapshotAtual.size);
 
-    console.log("Mês selecionado:", mesSelecionado);
+    if (snapshotAtual.size > 0) {
+        alert("Este mês já possui lançamentos.");
+        return;
+    }
 
-    // recarrega os dados na tela
+    // CLONAGEM
+    for (const docItem of querySnapshot.docs) {
+        const data = docItem.data();
+
+        await addDoc(collection(db, "ativos"), {
+            nome: data.nome,
+            valor_aluguel: data.valor_aluguel,
+            ativo: true,
+            status: "pendente",
+            mes: mesSelecionado
+        });
+
+        console.log("Clonado:", data.nome);
+    }
+
     listarImoveis();
 });
 
@@ -60,9 +102,6 @@ async function cadastrarImovel() {
             alert("Preencha todos os campos");
             return;
         }
-
-        const hoje = new Date();
-        const mesAtual = hoje.getFullYear() + "-" + String(hoje.getMonth() + 1).padStart(2, '0');
 
         await addDoc(collection(db, "ativos"), {
             nome: nome,
@@ -123,6 +162,8 @@ async function editarImovel(id, nomeAtual, valorAtual) {
 
 async function listarImoveis() {
 
+    console.log("Mes selecionado na listagem:", mesSelecionado);
+
     const pendente = document.getElementById("pendente");
     const recebido = document.getElementById("recebido");
 
@@ -142,7 +183,7 @@ async function listarImoveis() {
         console.log("Item:", data.nome, "| mês:", data.mes);
 
         const hoje = new Date();
-        const mesAtual = hoje.getFullYear() + "-" + String(hoje.getMonth() + 1).padStart(2, '0');
+        const mesPadrao = hoje.getFullYear() + "-" + String(hoje.getMonth() + 1).padStart(2, '0');
 
         if (data.mes !== mesSelecionado) {
             return;
