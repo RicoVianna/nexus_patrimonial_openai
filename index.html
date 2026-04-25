@@ -6,8 +6,51 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Sistema iniciado</h1>
+    <h1>Gestão Patrimonial</h1>
 
-    <script src="script.js"></script>
+    <h2>Cadastrar Imóvel</h2>
+
+    <input type="text" id="nome" placeholder="Nome do imóvel">
+    <br><br>
+
+    <input type="number" id="valor" placeholder="Valor do aluguel">
+    <br><br>
+
+    <button id="btnCadastrar">Cadastrar imóvel</button>
+
+    <h2>Imóveis cadastrados</h2>
+
+    <h2>Painel Financeiro</h2>
+
+    <label for="mesFiltro">Selecionar mês:</label>
+    <input type="month" id="mesFiltro">
+    <button id="btnGerarMes">Gerar lançamentos do mês</button>
+
+    <div class="kanban">
+
+        <div class="coluna">
+            <h3>Receita Pendente</h3>
+            <div id="pendente"></div>
+        </div>
+
+        <div class="coluna">
+            <h3>Recebido</h3>
+            <div id="recebido"></div>
+        </div>
+
+        <div class="coluna">
+            <h3>Despesas</h3>
+            <div id="despesa"></div>
+        </div>
+
+        <div class="coluna">
+            <h3>Pago</h3>
+            <div id="pago"></div>
+        </div>
+
+    </div>
+
+    <script type="module" src="firebase.js"></script>
+    <script type="module" src="script.js"></script>
 </body>
 </html>
