@@ -164,6 +164,8 @@ async function listarImoveis() {
 
     console.log("Mes selecionado na listagem:", mesSelecionado);
 
+    const mesAnterior = obterMesAnterior(mesSelecionado);
+
     const pendente = document.getElementById("pendente");
     const recebido = document.getElementById("recebido");
 
@@ -181,18 +183,69 @@ async function listarImoveis() {
 
     const querySnapshot = await getDocs(q);
 
-    querySnapshot.forEach((docItem) => {
+    let dadosParaRenderizar = [];
+
+if (querySnapshot.empty) {
+
+    console.log("Modo projeção (sem dados no mês)");
+
+    const snapshotTodos = await getDocs(collection(db, "ativos"));
+
+    let ultimoMes = null;
+
+    snapshotTodos.forEach(docItem => {
         const data = docItem.data();
-        const id = docItem.id;
+
+        if (!data.mes) return;
+
+        if (!ultimoMes || data.mes > ultimoMes) {
+            ultimoMes = data.mes;
+        }
+    });
+
+    console.log("Último mês encontrado:", ultimoMes);
+
+    if (!ultimoMes) {
+        console.log("Nenhum dado encontrado no banco");
+        return;
+    }
+
+    const qBase = query(
+        collection(db, "ativos"),
+        where("mes", "==", ultimoMes)
+    );
+
+    const snapshotBase = await getDocs(qBase);
+
+    snapshotBase.forEach(docItem => {
+        const data = docItem.data();
+
+        dadosParaRenderizar.push({
+            ...data,
+            status: "pendente",
+            id: null
+        });
+    });
+
+} else {
+
+    console.log("Modo dados reais");
+
+    querySnapshot.forEach(docItem => {
+        dadosParaRenderizar.push({
+            ...docItem.data(),
+            id: docItem.id
+        });
+    });
+}
+
+console.log("Itens para renderizar:", dadosParaRenderizar.length);
+
+    dadosParaRenderizar.forEach((data) => {
+        const id = data.id;
 
         console.log("Item:", data.nome, "| mês:", data.mes);
 
-        
-
-        if (data.mes !== mesSelecionado) {
-            return;
-        }
-        
         const item = document.createElement("div");
         item.classList.add("card");
 
@@ -218,17 +271,11 @@ async function listarImoveis() {
                 <h3>${data.nome}</h3>
                 <p><strong>Aluguel:</strong> R$ ${data.valor_aluguel}</p>
 
-                <button onclick="darBaixa('${id}')">
-                    💰 Dar baixa
-                </button>
+                ${id ? `<button onclick="darBaixa('${id}')">💰 Dar baixa</button>` : ""}
 
-                <button onclick="editarImovel('${id}', '${data.nome}', ${data.valor_aluguel})">
-                    Editar
-                </button>
+                ${id ? `<button onclick="editarImovel('${id}', '${data.nome}', ${data.valor_aluguel})">Editar</button>` : ""}
 
-                <button onclick="excluirImovel('${id}')">
-                    Excluir
-                </button>
+                ${id ? `<button onclick="excluirImovel('${id}')">Excluir</button>` : ""}
             `;
         }
 
