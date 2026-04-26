@@ -174,7 +174,12 @@ async function listarImoveis() {
     let totalPendente = 0;
     let totalRecebido = 0;
 
-    const querySnapshot = await getDocs(collection(db, "ativos"));
+    const q = query(
+        collection(db, "ativos"),
+        where("mes", "==", mesSelecionado)
+    );
+
+    const querySnapshot = await getDocs(q);
 
     querySnapshot.forEach((docItem) => {
         const data = docItem.data();
@@ -182,8 +187,7 @@ async function listarImoveis() {
 
         console.log("Item:", data.nome, "| mês:", data.mes);
 
-        const hoje = new Date();
-        const mesPadrao = hoje.getFullYear() + "-" + String(hoje.getMonth() + 1).padStart(2, '0');
+        
 
         if (data.mes !== mesSelecionado) {
             return;
