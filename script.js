@@ -97,9 +97,18 @@ async function cadastrarImovel() {
     try {
         const nome = document.getElementById("nome").value;
         const valor = document.getElementById("valor").value;
+        const vencimento = document.getElementById("vencimento").value;
 
-        if (nome === "" || valor === "") {
-            alert("Preencha todos os campos");
+        const venc = Number(vencimento);
+
+        if (
+            nome === "" ||
+            valor === "" ||
+            vencimento === "" ||
+            venc < 1 ||
+            venc > 31
+        ) {
+            alert("Preencha todos os campos corretamente");
             return;
         }
 
@@ -108,7 +117,8 @@ async function cadastrarImovel() {
             valor_aluguel: Number(valor),
             ativo: true,
             status: "pendente",
-            mes: mesSelecionado
+            mes: mesSelecionado,
+            dia_vencimento: Number(vencimento)
         });
 
         document.getElementById("nome").value = "";
@@ -246,8 +256,24 @@ console.log("Itens para renderizar:", dadosParaRenderizar.length);
 
         console.log("Item:", data.nome, "| mês:", data.mes);
 
+        const hoje = new Date();
+        const diaHoje = hoje.getDate();
+
+        let atrasado = false;
+
+        if (data.status === "pendente" && data.dia_vencimento) {
+            if (diaHoje > data.dia_vencimento) {
+                atrasado = true;
+            }
+        }
+
         const item = document.createElement("div");
         item.classList.add("card");
+
+        if (atrasado) {
+            item.style.backgroundColor = "#ffe5e5";
+            item.style.border = "2px solid red";
+        }
 
         if (data.status === "recebido") {
             item.innerHTML = `
@@ -266,10 +292,29 @@ console.log("Itens para renderizar:", dadosParaRenderizar.length);
                     Excluir
                 </button>
             `;
+
         } else {
+
+            const hoje = new Date();
+            const diaHoje = hoje.getDate();
+
+            let atrasado = false;
+
+            // Só calcula atraso se existir vencimento
+            if (data.dia_vencimento && data.status === "pendente") {
+                if (diaHoje > data.dia_vencimento) {
+                    atrasado = true;
+                }
+            }
+
             item.innerHTML = `
                 <h3>${data.nome}</h3>
+
                 <p><strong>Aluguel:</strong> R$ ${data.valor_aluguel}</p>
+
+                <p><strong>Vencimento:</strong> dia ${data.dia_vencimento ?? "-"}</p>
+
+                ${atrasado ? `<p style="color:red;"><strong>⚠️ Atrasado</strong></p>` : ""}
 
                 ${id ? `<button onclick="darBaixa('${id}')">💰 Dar baixa</button>` : ""}
 

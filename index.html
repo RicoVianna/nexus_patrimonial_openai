@@ -16,6 +16,8 @@
     <input type="number" id="valor" placeholder="Valor do aluguel">
     <br><br>
 
+    <input type="number" id="vencimento" placeholder="Dia do vencimento (1-31)" min="1" max="31"/>
+
     <button id="btnCadastrar">Cadastrar imóvel</button>
 
     <h2>Imóveis cadastrados</h2>
@@ -29,22 +31,27 @@
     <div class="kanban">
 
         <div class="coluna">
-            <h3>Receita Pendente</h3>
+            <h3>🟡 Receita Pendente</h3>
             <div id="pendente"></div>
         </div>
 
         <div class="coluna">
-            <h3>Recebido</h3>
+            <h3>🔴 Atrasados</h3>
+            <div id="atrasado"></div>
+        </div>
+
+        <div class="coluna">
+            <h3>🟢 Recebido</h3>
             <div id="recebido"></div>
         </div>
 
         <div class="coluna">
-            <h3>Despesas</h3>
+            <h3>🟠 Despesas</h3>
             <div id="despesa"></div>
         </div>
 
         <div class="coluna">
-            <h3>Pago</h3>
+            <h3>🔵 Pago</h3>
             <div id="pago"></div>
         </div>
 
