@@ -178,12 +178,15 @@ async function listarImoveis() {
 
     const pendente = document.getElementById("pendente");
     const recebido = document.getElementById("recebido");
+    const atrasadoColuna = document.getElementById("atrasado");
 
     pendente.innerHTML = "";
     recebido.innerHTML = "";
+    atrasadoColuna.innerHTML = "";
 
     // 🔥 ADICIONE AQUI
     let totalPendente = 0;
+    let totalAtrasado = 0;
     let totalRecebido = 0;
 
     const q = query(
@@ -325,11 +328,20 @@ console.log("Itens para renderizar:", dadosParaRenderizar.length);
         }
 
         if (data.status === "recebido") {
+
             recebido.appendChild(item);
             totalRecebido += data.valor_aluguel;
+
         } else {
-            pendente.appendChild(item);
-            totalPendente += data.valor_aluguel;
+
+            if (atrasado) {
+                atrasadoColuna.appendChild(item);
+                totalAtrasado += data.valor_aluguel;
+            } else {
+                pendente.appendChild(item);
+                totalPendente += data.valor_aluguel;
+            }
+
         }
     });
 
@@ -340,6 +352,10 @@ console.log("Itens para renderizar:", dadosParaRenderizar.length);
     const totalR = document.createElement("p");
     totalR.innerHTML = "<strong>Total: R$ " + totalRecebido + "</strong>";
     recebido.appendChild(totalR);
+
+    const totalA = document.createElement("p");
+    totalA.innerHTML = "<strong>Total: R$ " + totalAtrasado + "</strong>";
+    atrasadoColuna.appendChild(totalA);
 }
 
 document.getElementById("btnCadastrar").addEventListener("click", cadastrarImovel);
