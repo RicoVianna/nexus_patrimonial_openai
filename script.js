@@ -32,9 +32,33 @@ btnIniciarMes.addEventListener("click", async () => {
     console.log("Dados do mês atual:", snapshotAtual.size);
 
     if (snapshotAtual.size > 0) {
-        alert("Este mês já foi iniciado.");
-        return;
+    alert("Este mês já foi iniciado.");
+    return;
+}
+
+// 🔁 CLONAGEM
+for (const docItem of querySnapshot.docs) {
+    const data = docItem.data();
+
+    let novoStatus = "pendente";
+
+    if (data.status === "pendente") {
+        novoStatus = "atrasado";
     }
+
+    await addDoc(collection(db, "ativos"), {
+        nome: data.nome,
+        valor_aluguel: data.valor_aluguel,
+        dia_vencimento: data.dia_vencimento, // 🔥 ADICIONAR
+        ativo: true,
+        status: novoStatus,
+        mes: mesSelecionado
+    });
+
+    console.log("Clonado:", data.nome);
+}
+
+listarImoveis();
 });
 
 
@@ -136,13 +160,19 @@ btnGerarMes.addEventListener("click", async () => {
 
         console.log("Clonando:", data.nome);
 
+        let novoStatus = "pendente";
+
+        if (data.status === "pendente") {
+            novoStatus = "atrasado";
+        }
+
         await addDoc(collection(db, "ativos"), {
             nome: data.nome,
             valor_aluguel: data.valor_aluguel,
+            dia_vencimento: data.dia_vencimento, // 🔥 ADICIONAR
             ativo: true,
-            status: "pendente",
-            mes: mesSelecionado,
-            dia_vencimento: data.dia_vencimento
+            status: novoStatus,
+            mes: mesSelecionado
         });
     }
 
@@ -248,54 +278,97 @@ async function listarImoveis() {
     let totalAtrasado = 0;
     let totalRecebido = 0;
 
-// 🔍 buscar TODOS os ativos
-const snapshotTodos = await getDocs(collection(db, "ativos"));
+    // 🔍 buscar TODOS os ativos
+    const snapshotTodos = await getDocs(collection(db, "ativos"));
 
-let ultimoMes = null;
+    let ultimoMes = null;
 
-// descobrir último mês existente
-snapshotTodos.forEach(docItem => {
-    const data = docItem.data();
+    // descobrir último mês existente
+    snapshotTodos.forEach(docItem => {
+        const data = docItem.data();
 
-    if (!data.mes) return;
+        if (!data.mes) return;
 
-    if (!ultimoMes || data.mes > ultimoMes) {
-        ultimoMes = data.mes;
+        if (!ultimoMes || data.mes > ultimoMes) {
+            ultimoMes = data.mes;
+        }
+    });
+
+    console.log("Último mês encontrado:", ultimoMes);
+
+    // se não existir base
+    if (!ultimoMes) {
+        alert("Não há dados base para iniciar o mês.");
+        return;
+    }
+
+    // buscar base real
+    const q = query(
+        collection(db, "ativos"),
+        where("mes", "==", mesSelecionado)
+    );
+
+    const querySnapshot = await getDocs(q);
+
+    let dadosParaRenderizar = [];
+
+    if (querySnapshot.empty) {
+
+        console.log("Modo projeção (sem dados no mês)");
+
+        // 🔍 usar a própria base já buscada (qBase)
+    // 🔍 buscar TODOS os ativos
+    const snapshotTodos = await getDocs(collection(db, "ativos"));
+
+    const mesesUnicos = new Set();
+
+    snapshotTodos.forEach(docItem => {
+        const data = docItem.data();
+
+    if (data.mes) {
+        mesesUnicos.add(data.mes);
     }
 });
 
-console.log("Último mês encontrado:", ultimoMes);
+const listaMeses = Array.from(mesesUnicos).sort();
 
-// se não existir base
-if (!ultimoMes) {
-    alert("Não há dados base para iniciar o mês.");
+let mesBase = null;
+
+for (let i = listaMeses.length - 1; i >= 0; i--) {
+    if (listaMeses[i] <= mesSelecionado) {
+        mesBase = listaMeses[i];
+        break;
+    }
+}
+
+console.log("Mês base encontrado:", mesBase);
+
+if (!mesBase) {
+    console.log("Nenhum mês base encontrado");
     return;
 }
 
-// buscar base real
-const q = query(
+// 🔍 buscar dados do mês base correto
+const qBase = query(
     collection(db, "ativos"),
-    where("mes", "==", mesSelecionado)
+    where("mes", "==", mesBase)
 );
 
-const querySnapshot = await getDocs(q);
+const snapshotBase = await getDocs(qBase);
 
-let dadosParaRenderizar = [];
+// montar projeção
+snapshotBase.forEach(docItem => {
+    const data = docItem.data();
 
-if (querySnapshot.empty) {
+    console.log("Base usada:", mesBase, "| Imóvel:", data.nome);
 
-    console.log("Modo projeção (sem dados no mês)");
-
-    // 🔍 usar a própria base já buscada (qBase)
-    querySnapshot.forEach(docItem => {
-        const data = docItem.data();
-
-        dadosParaRenderizar.push({
-            ...data,
-            status: "pendente",
-            id: null
-        });
+    dadosParaRenderizar.push({
+        ...data,
+        mes: mesSelecionado,
+        status: "pendente",
+        id: null
     });
+});
 
 } else {
 
@@ -319,15 +392,19 @@ console.log("Itens para renderizar:", dadosParaRenderizar.length);
 
         console.log("Item:", data.nome, "| mês:", data.mes);
 
-        const hoje = new Date();
+        console.log("Vencimento:", data.dia_vencimento);
+
         const diaHoje = hoje.getDate();
 
         let atrasado = false;
 
-        if (data.status === "pendente" && data.dia_vencimento) {
-            if (diaHoje > data.dia_vencimento) {
-                atrasado = true;
-            }
+        if (
+            data.status === "pendente" &&
+            data.dia_vencimento &&
+            mesSelecionado === mesAtualReal &&
+            diaHoje > data.dia_vencimento
+        ) {
+            atrasado = true;
         }
 
         const item = document.createElement("div");
@@ -358,18 +435,6 @@ console.log("Itens para renderizar:", dadosParaRenderizar.length);
 
         } else {
 
-            const hoje = new Date();
-            const diaHoje = hoje.getDate();
-
-            let atrasado = false;
-
-            // Só calcula atraso se existir vencimento
-            if (data.dia_vencimento && data.status === "pendente") {
-                if (diaHoje > data.dia_vencimento) {
-                    atrasado = true;
-                }
-            }
-
             item.innerHTML = `
                 <h3>${data.nome}</h3>
 
@@ -396,7 +461,10 @@ console.log("Itens para renderizar:", dadosParaRenderizar.length);
 
         } else {
 
-            if (atrasado) {
+            if (data.status === "recebido") {
+                recebido.appendChild(item);
+                totalRecebido += data.valor_aluguel;
+            } else if (atrasado) {
                 atrasadoColuna.appendChild(item);
                 totalAtrasado += data.valor_aluguel;
             } else {
