@@ -335,9 +335,8 @@ const listaMeses = Array.from(mesesUnicos).sort();
 let mesBase = null;
 
 for (let i = listaMeses.length - 1; i >= 0; i--) {
-    if (listaMeses[i] <= mesSelecionado) {
+    if (!mesBase || listaMeses[i] > mesBase) {
         mesBase = listaMeses[i];
-        break;
     }
 }
 
@@ -366,7 +365,7 @@ snapshotBase.forEach(docItem => {
         ...data,
         mes: mesSelecionado,
         status: "pendente",
-        id: null
+        id: data.id || "projecao"
     });
 });
 
@@ -396,17 +395,19 @@ console.log("Itens para renderizar:", dadosParaRenderizar.length);
 
         const diaHoje = hoje.getDate();
 
-        let atrasado = false;
+let atrasado = false;
 
-        if (
-            data.status === "pendente" &&
-            data.dia_vencimento &&
-            mesSelecionado === mesAtualReal &&
-            diaHoje > data.dia_vencimento
-        ) {
+if (data.status === "pendente" && data.dia_vencimento) {
+
+    if (mesSelecionado < mesAtualReal) {
+        atrasado = true;
+
+    } else if (mesSelecionado <= mesAtualReal) {
+        if (diaHoje > data.dia_vencimento) {
             atrasado = true;
         }
-
+    }
+}
         const item = document.createElement("div");
         item.classList.add("card");
 
