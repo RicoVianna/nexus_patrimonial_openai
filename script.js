@@ -1,8 +1,46 @@
+const inputMes = document.getElementById("mesFiltro");
+const btnGerarMes = document.getElementById("btnGerarMes");
+const btnIniciarMes = document.getElementById("btnIniciarMes");
+console.log("btnIniciarMes:", btnIniciarMes);
+
+btnIniciarMes.addEventListener("click", async () => {
+    console.log("INICIANDO MÊS...");
+
+    if (!mesSelecionado) {
+        alert("Selecione um mês primeiro");
+        return;
+    }
+
+    const mesAnterior = obterMesAnterior(mesSelecionado);
+
+    const q = query(
+        collection(db, "ativos"),
+        where("mes", "==", mesAnterior)
+    );
+
+    const querySnapshot = await getDocs(q);
+
+    console.log("Dados do mês anterior:", querySnapshot.size);
+
+    const qAtual = query(
+        collection(db, "ativos"),
+        where("mes", "==", mesSelecionado)
+    );
+
+    const snapshotAtual = await getDocs(qAtual);
+
+    console.log("Dados do mês atual:", snapshotAtual.size);
+
+    if (snapshotAtual.size > 0) {
+        alert("Este mês já foi iniciado.");
+        return;
+    }
+});
+
+
 import { db } from "./firebase.js";
 import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where } from "https://www.gstatic.com/firebasejs/12.12.1/firebase-firestore.js";
 
-const inputMes = document.getElementById("mesFiltro");
-const btnGerarMes = document.getElementById("btnGerarMes");
 
 // 🔵 DATA PADRÃO (UMA VEZ SÓ)
 const hoje = new Date();
@@ -40,38 +78,55 @@ inputMes.addEventListener("change", () => {
 // 🔵 BOTÃO GERAR MÊS
 btnGerarMes.addEventListener("click", async () => {
 
+    console.log("BOTÃO CLICADO");
+
+    if (!mesSelecionado) {
+        alert("Selecione um mês primeiro");
+        return;
+    }
+
     const mesAnterior = obterMesAnterior(mesSelecionado);
 
     console.log("Mês atual:", mesSelecionado);
     console.log("Mês anterior:", mesAnterior);
 
-    const q = query(
-        collection(db, "ativos"),
-        where("mes", "==", mesAnterior)
-    );
+    // 🔍 buscar todos os ativos
+    const snapshotTodos = await getDocs(collection(db, "ativos"));
 
-    const querySnapshot = await getDocs(q);
+    let ultimoMes = null;
 
-    console.log("Encontrados:", querySnapshot.size);
+    // descobrir o maior mês existente
+    snapshotTodos.forEach(docItem => {
+        const data = docItem.data();
 
-    // VALIDAÇÃO 1
-    if (querySnapshot.size === 0) {
-        alert("Não há dados no mês anterior para copiar.");
+        if (!data.mes) return;
+
+        if (!ultimoMes || data.mes > ultimoMes) {
+            ultimoMes = data.mes;
+        }
+    });
+
+    console.log("Último mês encontrado:", ultimoMes);
+
+    // se não existir nada no banco
+    if (!ultimoMes) {
+        alert("Não há dados para iniciar o mês.");
         return;
     }
 
-    // VALIDAÇÃO 2
-    const qAtual = query(
+    // 🔍 buscar base do último mês
+    const qBase = query(
         collection(db, "ativos"),
         where("mes", "==", mesSelecionado)
     );
 
-    const snapshotAtual = await getDocs(qAtual);
+    const querySnapshot = await getDocs(qBase);
 
-    console.log("Registros no mês atual:", snapshotAtual.size);
+    console.log("Base encontrada:", querySnapshot.size);
 
-    if (snapshotAtual.size > 0) {
-        alert("Este mês já possui lançamentos.");
+    // VALIDAÇÃO 1
+    if (querySnapshot.size === 0) {
+        alert("Não há dados base para iniciar o mês.");
         return;
     }
 
@@ -79,19 +134,23 @@ btnGerarMes.addEventListener("click", async () => {
     for (const docItem of querySnapshot.docs) {
         const data = docItem.data();
 
+        console.log("Clonando:", data.nome);
+
         await addDoc(collection(db, "ativos"), {
             nome: data.nome,
             valor_aluguel: data.valor_aluguel,
             ativo: true,
             status: "pendente",
-            mes: mesSelecionado
+            mes: mesSelecionado,
+            dia_vencimento: data.dia_vencimento
         });
-
-        console.log("Clonado:", data.nome);
     }
 
+    console.log("Finalizou clonagem");
+
     listarImoveis();
-});
+
+    });
 
 async function cadastrarImovel() {
     try {
@@ -189,48 +248,46 @@ async function listarImoveis() {
     let totalAtrasado = 0;
     let totalRecebido = 0;
 
-    const q = query(
-        collection(db, "ativos"),
-        where("mes", "==", mesSelecionado)
-    );
+// 🔍 buscar TODOS os ativos
+const snapshotTodos = await getDocs(collection(db, "ativos"));
 
-    const querySnapshot = await getDocs(q);
+let ultimoMes = null;
 
-    let dadosParaRenderizar = [];
+// descobrir último mês existente
+snapshotTodos.forEach(docItem => {
+    const data = docItem.data();
+
+    if (!data.mes) return;
+
+    if (!ultimoMes || data.mes > ultimoMes) {
+        ultimoMes = data.mes;
+    }
+});
+
+console.log("Último mês encontrado:", ultimoMes);
+
+// se não existir base
+if (!ultimoMes) {
+    alert("Não há dados base para iniciar o mês.");
+    return;
+}
+
+// buscar base real
+const q = query(
+    collection(db, "ativos"),
+    where("mes", "==", mesSelecionado)
+);
+
+const querySnapshot = await getDocs(q);
+
+let dadosParaRenderizar = [];
 
 if (querySnapshot.empty) {
 
     console.log("Modo projeção (sem dados no mês)");
 
-    const snapshotTodos = await getDocs(collection(db, "ativos"));
-
-    let ultimoMes = null;
-
-    snapshotTodos.forEach(docItem => {
-        const data = docItem.data();
-
-        if (!data.mes) return;
-
-        if (!ultimoMes || data.mes > ultimoMes) {
-            ultimoMes = data.mes;
-        }
-    });
-
-    console.log("Último mês encontrado:", ultimoMes);
-
-    if (!ultimoMes) {
-        console.log("Nenhum dado encontrado no banco");
-        return;
-    }
-
-    const qBase = query(
-        collection(db, "ativos"),
-        where("mes", "==", ultimoMes)
-    );
-
-    const snapshotBase = await getDocs(qBase);
-
-    snapshotBase.forEach(docItem => {
+    // 🔍 usar a própria base já buscada (qBase)
+    querySnapshot.forEach(docItem => {
         const data = docItem.data();
 
         dadosParaRenderizar.push({
@@ -253,6 +310,9 @@ if (querySnapshot.empty) {
 }
 
 console.log("Itens para renderizar:", dadosParaRenderizar.length);
+
+    const hoje = new Date();
+    const mesAtualReal = hoje.toISOString().slice(0, 7);
 
     dadosParaRenderizar.forEach((data) => {
         const id = data.id;
@@ -313,17 +373,19 @@ console.log("Itens para renderizar:", dadosParaRenderizar.length);
             item.innerHTML = `
                 <h3>${data.nome}</h3>
 
+                ${!id ? `<div style="background:#fff3cd; color:#856404; padding:6px; border-radius:6px; margin:6px 0; font-size:13px;"><strong>📊 Projeção</strong></div>` : ""}
+
                 <p><strong>Aluguel:</strong> R$ ${data.valor_aluguel}</p>
 
                 <p><strong>Vencimento:</strong> dia ${data.dia_vencimento ?? "-"}</p>
 
                 ${atrasado ? `<p style="color:red;"><strong>⚠️ Atrasado</strong></p>` : ""}
 
-                ${id ? `<button onclick="darBaixa('${id}')">💰 Dar baixa</button>` : ""}
+                ${id && mesSelecionado <= mesAtualReal ? `<button onclick="darBaixa('${id}')">💰 Dar baixa</button>` : ""}
 
-                ${id ? `<button onclick="editarImovel('${id}', '${data.nome}', ${data.valor_aluguel})">Editar</button>` : ""}
+                ${id && mesSelecionado <= mesAtualReal ? `<button onclick="editarImovel('${id}', '${data.nome}', ${data.valor_aluguel})">Editar</button>` : ""}
 
-                ${id ? `<button onclick="excluirImovel('${id}')">Excluir</button>` : ""}
+                ${id && mesSelecionado <= mesAtualReal ? `<button onclick="excluirImovel('${id}')">Excluir</button>` : ""}
             `;
         }
 
