@@ -49,10 +49,10 @@ for (const docItem of querySnapshot.docs) {
     await addDoc(collection(db, "ativos"), {
         nome: data.nome,
         valor_aluguel: data.valor_aluguel,
-        dia_vencimento: data.dia_vencimento, // 🔥 ADICIONAR
         ativo: true,
         status: novoStatus,
-        mes: mesSelecionado
+        mes: mesSelecionado,
+        dia_vencimento: data.dia_vencimento || null
     });
 
     console.log("Clonado:", data.nome);
@@ -317,57 +317,57 @@ async function listarImoveis() {
         console.log("Modo projeção (sem dados no mês)");
 
         // 🔍 usar a própria base já buscada (qBase)
-    // 🔍 buscar TODOS os ativos
-    const snapshotTodos = await getDocs(collection(db, "ativos"));
+        // 🔍 buscar TODOS os ativos
+        const snapshotTodos = await getDocs(collection(db, "ativos"));
 
-    const mesesUnicos = new Set();
+        const mesesUnicos = new Set();
 
-    snapshotTodos.forEach(docItem => {
+        snapshotTodos.forEach(docItem => {
+            const data = docItem.data();
+
+        if (data.mes) {
+            mesesUnicos.add(data.mes);
+        }
+    });
+
+    const listaMeses = Array.from(mesesUnicos).sort();
+
+    let mesBase = null;
+
+    for (let i = listaMeses.length - 1; i >= 0; i--) {
+        if (!mesBase || listaMeses[i] > mesBase) {
+            mesBase = listaMeses[i];
+        }
+    }
+
+    console.log("Mês base encontrado:", mesBase);
+
+    if (!mesBase) {
+        console.log("Nenhum mês base encontrado");
+        return;
+    }
+
+    // 🔍 buscar dados do mês base correto
+    const qBase = query(
+        collection(db, "ativos"),
+        where("mes", "==", mesBase)
+    );
+
+    const snapshotBase = await getDocs(qBase);
+
+    // montar projeção
+    snapshotBase.forEach(docItem => {
         const data = docItem.data();
 
-    if (data.mes) {
-        mesesUnicos.add(data.mes);
-    }
-});
+        console.log("Base usada:", mesBase, "| Imóvel:", data.nome);
 
-const listaMeses = Array.from(mesesUnicos).sort();
-
-let mesBase = null;
-
-for (let i = listaMeses.length - 1; i >= 0; i--) {
-    if (!mesBase || listaMeses[i] > mesBase) {
-        mesBase = listaMeses[i];
-    }
-}
-
-console.log("Mês base encontrado:", mesBase);
-
-if (!mesBase) {
-    console.log("Nenhum mês base encontrado");
-    return;
-}
-
-// 🔍 buscar dados do mês base correto
-const qBase = query(
-    collection(db, "ativos"),
-    where("mes", "==", mesBase)
-);
-
-const snapshotBase = await getDocs(qBase);
-
-// montar projeção
-snapshotBase.forEach(docItem => {
-    const data = docItem.data();
-
-    console.log("Base usada:", mesBase, "| Imóvel:", data.nome);
-
-    dadosParaRenderizar.push({
-        ...data,
-        mes: mesSelecionado,
-        status: "pendente",
-        id: data.id || "projecao"
+        dadosParaRenderizar.push({
+            ...data,
+            mes: mesSelecionado,
+            status: "pendente",
+            id: data.id || "projecao"
+        });
     });
-});
 
 } else {
 
